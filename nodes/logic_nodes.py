@@ -1,18 +1,20 @@
 # logic_nodes.py
-from ._names import MithrilCategories
+from .utils import Categories, dn, log
+
 
 class MithrilMultiplexer:
     """
     A Multiplexer/Selector node. Now takes labeled inputs.
     Connect MithrilMultiplexerInput outputs to the item inputs.
     """
-    LOG_PREFIX = "⚒️ MithrilMultiplexer: "
+
+    DISPLAY_NAME = dn("Multiplexer")
 
     RETURN_TYPES = ("*",)
     RETURN_NAMES = ("output",)
     FUNCTION = "select_item"
-    CATEGORY = MithrilCategories.LOGIC
-    
+    CATEGORY = Categories.LOGIC
+
     @classmethod
     def INPUT_TYPES(s):
         return {
@@ -26,9 +28,9 @@ class MithrilMultiplexer:
                 "item_3": ("MITHRIL_MULTIPLEXER_INPUT",),
                 "item_4": ("MITHRIL_MULTIPLEXER_INPUT",),
                 "item_5": ("MITHRIL_MULTIPLEXER_INPUT",),
-            }
+            },
         }
-    
+
     @classmethod
     def VALIDATE_INPUTS(cls, **kwargs):
         """
@@ -39,59 +41,76 @@ class MithrilMultiplexer:
         for key in sorted(kwargs.keys()):
             if key.startswith("item_") and kwargs[key] is not None:
                 connected_items.append(kwargs[key])
-        
+
         if len(connected_items) >= 2:
             first_item_data_type = type(connected_items[0].get_data())
             for i, item in enumerate(connected_items[1:], start=2):
                 current_item_data_type = type(item.get_data())
                 if current_item_data_type is not first_item_data_type:
-                    # Print the detailed error to the console for debugging.
-                    error_message = f"{cls.LOG_PREFIX} Type Mismatch: Input 1 is '{first_item_data_type.__name__}', but Input {i} is '{current_item_data_type.__name__}'."
-                    print(error_message)
+                    # Log an error message with the class prefix
+                    error_message = f"Type Mismatch: Input 1 is '{first_item_data_type.__name__}', but Input {i} is '{current_item_data_type.__name__}'."
+                    log(error_message)
                     # Return False to signal invalidation without confusing error messages.
                     return False
-        
+
         # If all checks pass, return True.
         return True
- 
+
     def select_item(self, select, **kwargs):
         # We can use **kwargs here to simplify getting the items.
-        items_with_instances = [kwargs[key] for key in sorted(kwargs.keys()) if key.startswith("item_") and kwargs[key] is not None]
-        
+        items_with_instances = [
+            kwargs[key]
+            for key in sorted(kwargs.keys())
+            if key.startswith("item_") and kwargs[key] is not None
+        ]
+
         # Create a map using the methods of the instances
-        item_map = {instance.get_label(): instance.get_data() for instance in items_with_instances}
+        item_map = {
+            instance.get_label(): instance.get_data()
+            for instance in items_with_instances
+        }
         if not item_map:
-            raise ValueError(self.LOG_PREFIX + "No labeled items connected.")
-        
+            raise ValueError("No labeled items connected.")
+
         # This runtime type check is still a good fallback.
         all_data = list(item_map.values())
         if len(all_data) > 1:
             first_item_type = type(all_data[0])
             for item in all_data[1:]:
                 if type(item) is not first_item_type:
-                    raise ValueError(self.LOG_PREFIX + f"Runtime Type mismatch! All inputs must be the same. Expected {first_item_type.__name__}, but found {type(item).__name__}.")
+                    raise ValueError(
+                        f"Runtime Type mismatch! All inputs must be the same. Expected {first_item_type.__name__}, but found {type(item).__name__}."
+                    )
 
         if select not in item_map:
-            raise ValueError(self.LOG_PREFIX + f"Selected label '{select}' not found. Available labels: {list(item_map.keys())}")
-        
-        selected_item = item_map[select]
-        print(self.LOG_PREFIX + f"Selected '{select}'.")
-        
-        return (selected_item,)
-    
-    
+            raise ValueError(
+                f"Selected label '{select}' not found. Available labels: {list(item_map.keys())}"
+            )
 
-    
-    
+        selected_item = item_map[select]
+        log(f"Selected '{select}'.")
+
+        return (selected_item,)
+
+
 class MithrilMultiplexerInput:
     """
     Attaches a string label to any data type that is passed through.
     Useful for naming inputs for the Mithril Multiplexer.
     """
+
+    DISPLAY_NAME = dn("Multiplexer Input")
+
+    # We are now outputting a single, special type.
+    RETURN_TYPES = ("MITHRIL_MULTIPLEXER_INPUT",)
+    RETURN_NAMES = ("multiplexer_input",)
+    FUNCTION = "label_data"
+    CATEGORY = Categories.LOGIC
+
     def __init__(self):
         self._data = None
         self._label = None
-    
+
     @classmethod
     def INPUT_TYPES(s):
         return {
@@ -100,12 +119,11 @@ class MithrilMultiplexerInput:
                 "data": ("*",),
             }
         }
-    
-    # We are now outputting a single, special type.
-    RETURN_TYPES = ("MITHRIL_MULTIPLEXER_INPUT",) 
-    RETURN_NAMES = ("multiplexer_input",)
-    FUNCTION = "label_data"
-    CATEGORY = MithrilCategories.LOGIC
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, foo):
+        # YOLO, anything goes!
+        return True
 
     def label_data(self, label, data):
         # Store the data and label in the instance
@@ -113,11 +131,11 @@ class MithrilMultiplexerInput:
         self._label = label
         # Return this instance
         return (self,)
-    
+
     def get_data(self):
         """Method that MithrilMultiplexer can call to get the wrapped data"""
         return self._data
-    
+
     def get_label(self):
         """Method that MithrilMultiplexer can call to get the label"""
         return self._label
